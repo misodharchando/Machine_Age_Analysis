@@ -293,8 +293,12 @@ def to_excel_bytes(detail, unit_summary, unit_category, overall_exact, overall_b
             ws.set_row(0, 22)
             for i, col in enumerate(frame.columns):
                 ws.write(0, i, col, header)
-                sample = frame[col].astype(str).head(200)
-                width = min(40, max(12, len(str(col)) + 2, int(sample.str.len().max() if len(sample) else 0) + 2))
+                try:
+                    longest = pd.Series(frame.iloc[:200, i]).map(lambda v: len(str(v)) if pd.notna(v) else 0).max()
+                    longest = 0 if pd.isna(longest) else int(longest)
+                except Exception:
+                    longest = 12
+                width = min(40, max(12, len(str(col)) + 2, longest + 2))
                 fmt = pct if "%" in str(col) else None
                 ws.set_column(i, i, width, fmt)
             if len(frame.columns):
