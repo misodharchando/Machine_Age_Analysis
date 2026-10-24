@@ -53,8 +53,16 @@ st.markdown(f"""
 .kpi .hint {{font-size:.78rem;color:{BRAND['muted']};margin-top:.2rem}}
 .section-title {{font-size:1.15rem;font-weight:800;color:{BRAND['navy']};margin:.35rem 0 .75rem}}
 [data-testid="stSidebar"] {{background:#f8fafc;border-right:1px solid #e5e7eb}}
-[data-testid="stDataFrame"] {{border:1px solid #e5e7eb;border-radius:12px;overflow:hidden}}
-div[data-baseweb="tab-list"] {{gap:.35rem}} button[data-baseweb="tab"] {{background:white;border-radius:10px 10px 0 0;padding:.65rem 1rem}}
+[data-testid="stDataFrame"] {{border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;box-shadow:0 4px 14px rgba(16,24,40,.04)}}
+[data-testid="stFileUploader"] {{background:white;border:1px dashed #94a3b8;border-radius:14px;padding:.35rem}}
+[data-testid="stDownloadButton"] button {{min-height:48px;border-radius:12px;font-weight:800;border:0;background:linear-gradient(120deg,#0B1F3A,#1565C0);color:white}}
+[data-testid="stDownloadButton"] button:hover {{color:white;border:0;filter:brightness(1.08)}}
+div[data-baseweb="tab-list"] {{gap:.4rem;background:#eaf0f7;padding:.35rem;border-radius:12px}}
+button[data-baseweb="tab"] {{background:white;border-radius:9px;padding:.65rem 1rem;font-weight:700}}
+button[data-baseweb="tab"][aria-selected="true"] {{background:#1565C0;color:white}}
+.status-strip {{display:flex;gap:.6rem;flex-wrap:wrap;margin:.2rem 0 1rem}}
+.status-pill {{background:#eef6ff;color:#0B1F3A;border:1px solid #cfe1f7;border-radius:999px;padding:.38rem .75rem;font-size:.82rem;font-weight:700}}
+@media (max-width: 800px) {{.hero h1{{font-size:1.55rem}}.block-container{{padding-left:.7rem;padding-right:.7rem}}.kpi{{min-height:96px}}}}
 </style>
 <div class="hero"><h1>🏭 Machine Age Intelligence</h1><p>Unit-wise and category-wise asset age analysis for Kenpark & Regency machine master data</p></div>
 """, unsafe_allow_html=True)
@@ -362,10 +370,16 @@ def create_pdf_report(filtered, unit_summary, unit_category, exact, overall_band
     )
     story.append(Paragraph(filter_text, styles["SmallNoteCustom"]))
 
+    # High-resolution PDF charts with consistent, print-friendly styling.
+    plt.rcParams.update({
+        "font.size": 9, "axes.titlesize": 14, "axes.titleweight": "bold",
+        "axes.labelsize": 10, "figure.facecolor": "white", "axes.facecolor": "white",
+        "axes.edgecolor": "#CBD5E1", "grid.color": "#E2E8F0", "grid.linewidth": 0.7,
+    })
     chart_buffers = []
     if not exact.empty:
         fig, ax = plt.subplots(figsize=(10, 4))
-        ax.bar(exact["Age Whole Years"].astype(str), exact["Machine Qty"])
+        ax.bar(exact["Age Whole Years"].astype(str), exact["Machine Qty"], color="#1565C0", edgecolor="white")
         ax.set_title("Exact Age Distribution")
         ax.set_xlabel("Age in whole years")
         ax.set_ylabel("Machine quantity")
@@ -373,14 +387,14 @@ def create_pdf_report(filtered, unit_summary, unit_category, exact, overall_band
         ax.grid(axis="y", alpha=.25)
         fig.tight_layout()
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=140, bbox_inches="tight")
+        fig.savefig(buf, format="png", dpi=220, bbox_inches="tight", facecolor="white")
         plt.close(fig)
         buf.seek(0)
         chart_buffers.append(("Exact Age Distribution", buf))
 
         if "Cumulative %" in exact.columns:
             fig, ax = plt.subplots(figsize=(10, 3.5))
-            ax.plot(exact["Age Whole Years"], exact["Cumulative %"] * 100, marker="o")
+            ax.plot(exact["Age Whole Years"], exact["Cumulative %"] * 100, marker="o", color="#F59E0B", linewidth=2.5, markersize=4)
             ax.set_title("Cumulative Machine Quantity by Age")
             ax.set_xlabel("Age in whole years")
             ax.set_ylabel("Cumulative share (%)")
@@ -388,7 +402,7 @@ def create_pdf_report(filtered, unit_summary, unit_category, exact, overall_band
             ax.grid(alpha=.25)
             fig.tight_layout()
             buf = io.BytesIO()
-            fig.savefig(buf, format="png", dpi=140, bbox_inches="tight")
+            fig.savefig(buf, format="png", dpi=220, bbox_inches="tight", facecolor="white")
             plt.close(fig)
             buf.seek(0)
             chart_buffers.append(("Cumulative Age Profile", buf))
@@ -396,13 +410,13 @@ def create_pdf_report(filtered, unit_summary, unit_category, exact, overall_band
     if not overall_bands.empty:
         fig, ax = plt.subplots(figsize=(8, 4))
         bands = overall_bands.copy()
-        ax.barh(bands["Age Band"].astype(str), bands["Machine Qty"])
+        ax.barh(bands["Age Band"].astype(str), bands["Machine Qty"], color=[AGE_COLORS.get(str(v), "#1565C0") for v in bands["Age Band"]])
         ax.set_title("Machine Quantity by Age Band")
         ax.set_xlabel("Machine quantity")
         ax.grid(axis="x", alpha=.25)
         fig.tight_layout()
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=140, bbox_inches="tight")
+        fig.savefig(buf, format="png", dpi=220, bbox_inches="tight", facecolor="white")
         plt.close(fig)
         buf.seek(0)
         chart_buffers.append(("Age Bands", buf))
@@ -423,19 +437,27 @@ def create_pdf_report(filtered, unit_summary, unit_category, exact, overall_band
         ax.grid(axis="y", alpha=.2)
         fig.tight_layout()
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=140, bbox_inches="tight")
+        fig.savefig(buf, format="png", dpi=220, bbox_inches="tight", facecolor="white")
         plt.close(fig)
         buf.seek(0)
         chart_buffers.append(("Unit Composition", buf))
 
     if chart_buffers:
-        story.append(PageBreak())
-        story.append(Paragraph("2. Charts", styles["SectionHeadingCustom"]))
-        for chart_title, buf in chart_buffers:
+        # One chart per landscape page prevents clipping and keeps labels readable.
+        for chart_index, (chart_title, buf) in enumerate(chart_buffers, start=1):
+            story.append(PageBreak())
+            heading = "2. Charts" if chart_index == 1 else "2. Charts (continued)"
+            story.append(Paragraph(heading, styles["SectionHeadingCustom"]))
             story.append(Paragraph(chart_title, styles["Heading3"]))
+            story.append(Spacer(1, 2 * mm))
             buf.seek(0)
-            story.append(RLImage(buf, width=250 * mm, height=95 * mm, kind="proportional"))
-            story.append(Spacer(1, 3 * mm))
+            image = RLImage(buf)
+            max_w, max_h = 260 * mm, 145 * mm
+            scale = min(max_w / image.imageWidth, max_h / image.imageHeight)
+            image.drawWidth = image.imageWidth * scale
+            image.drawHeight = image.imageHeight * scale
+            image.hAlign = "CENTER"
+            story.append(image)
 
     story.append(PageBreak())
     story.append(Paragraph("3. Overall Exact Age Distribution", styles["SectionHeadingCustom"]))
@@ -627,8 +649,19 @@ issues = filtered[
     | (filtered["Category"] == "Unclassified")
 ].copy()
 
+st.markdown(
+    f'<div class="status-strip"><span class="status-pill">Sheet: {sheet}</span>'
+    f'<span class="status-pill">Rows: {len(filtered):,}</span>'
+    f'<span class="status-pill">Units selected: {len(selected_units):,}</span>'
+    f'<span class="status-pill">Categories selected: {len(selected_cats):,}</span>'
+    f'<span class="status-pill">Age as of: {report_date:%d %b %Y}</span></div>',
+    unsafe_allow_html=True
+)
+if filtered.empty:
+    st.warning("No records match the current filters. Adjust the sidebar selections to continue.")
+
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "Overall Age Report", "Unit Category Age", "Unit Category Charts", "Data Quality", "Machine Details"
+    "📊 Overview", "🏭 Unit & Category", "📈 Visual Analysis", "✅ Data Quality", "🔎 Machine Details"
 ])
 
 with tab1:
@@ -749,6 +782,7 @@ export = to_excel_bytes(export_detail, unit_summary, unit_category, exact, overa
 
 st.divider()
 st.markdown("### Download reports")
+st.caption("Both exports respect the current filters. The PDF uses dedicated landscape chart pages for clear printing.")
 download_col1, download_col2 = st.columns(2)
 with download_col1:
     st.download_button(
