@@ -784,11 +784,11 @@ def create_pdf_report(filtered, unit_summary, unit_category, exact, overall_band
         total_row = {"Unit": "TOTAL", **{b: unit_pdf[b].sum() for b in AGE_BANDS},
                      "Total Machines": unit_pdf["Total Machines"].sum(), "Average Age": avg_age}
         unit_pdf = pd.concat([unit_pdf, pd.DataFrame([total_row])], ignore_index=True)
-    story += pdf_table(unit_pdf, S, max_rows=80, font_size=8, zero_dash=True, bold_last=True)
+    story += pdf_table(unit_pdf, S, max_rows=None, font_size=8, zero_dash=True, bold_last=True)
 
     story += [PageBreak(), Paragraph("6. Unit and category age summary", S["h1"]),
               Paragraph("Grouped by unit, largest category first.", S["note"]), Spacer(1, 2 * mm)]
-    story += pdf_table(unit_category, S, max_rows=250, font_size=7, zero_dash=True, max_chars=36)
+    story += pdf_table(unit_category, S, max_rows=None, font_size=7, zero_dash=True, max_chars=36)
 
     story += [PageBreak(), Paragraph("7. Data quality", S["h1"])]
     q_pdf = quality.copy()
@@ -800,7 +800,7 @@ def create_pdf_report(filtered, unit_summary, unit_category, exact, overall_band
               Spacer(1, 2 * mm)]
     extras = [c for c in (extra_detail_cols or []) if c in issues.columns][:2]
     issue_cols = [c for c in ["Review Reason"] + extras + ["Unit", "Category", "Quantity", "Age Years", "Data Status"] if c in issues.columns]
-    story += pdf_table(issues[issue_cols] if not issues.empty else issues, S, max_rows=100, font_size=7)
+    story += pdf_table(issues[issue_cols] if not issues.empty else issues, S, max_rows=None, font_size=7)
 
     story += [PageBreak(), Paragraph("8. Complete machine details", S["h1"]),
               Paragraph(
