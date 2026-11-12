@@ -775,7 +775,7 @@ def create_pdf_report(filtered, unit_summary, unit_category, exact, overall_band
     exact_pdf = exact.copy()
     if "Cumulative %" in exact_pdf.columns:
         exact_pdf["Cumulative %"] = exact_pdf["Cumulative %"].map(lambda v: f"{v:.1%}" if pd.notna(v) else "–")
-    story += pdf_table(exact_pdf, S, max_rows=80, font_size=8.5, max_width=120 * mm)
+    story += pdf_table(exact_pdf, S, max_rows=None, font_size=8.5, max_width=120 * mm)
 
     story += [PageBreak(), Paragraph("5. Unit-wise age summary", S["h1"]),
               Paragraph("Machine quantity per age band. Average age is quantity-weighted.", S["note"]), Spacer(1, 2 * mm)]
