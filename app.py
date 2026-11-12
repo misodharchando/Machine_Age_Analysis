@@ -23,7 +23,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas as rl_canvas
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    SimpleDocTemplate, Paragraph, Spacer, Table, LongTable, TableStyle,
     Image as RLImage, PageBreak, KeepTogether,
 )
 
@@ -416,13 +416,20 @@ def pdf_cell(value, col="", max_chars=30, zero_dash=False):
 
 def pdf_table(df, styles, max_rows=60, font_size=7, max_width=None, zero_dash=False,
               bold_last=False, max_chars=30):
-    """Wrapped-text table with content-aware column widths. Returns a list of flowables."""
+    """
+    Wrapped-text table with content-aware column widths.
+
+    Set max_rows=None to include every row. LongTable allows large detail
+    tables to split naturally across PDF pages while repeating the header.
+    """
     note = None
     if df is None or df.empty:
         view = pd.DataFrame({"Information": ["No records available"]})
     else:
-        view = df.head(max_rows).copy()
-        if len(df) > max_rows:
+        # None means no row limit. Other values retain the existing limits
+        # used by the summary tables.
+        view = df.copy() if max_rows is None else df.head(max_rows).copy()
+        if max_rows is not None and len(df) > max_rows:
             note = f"Showing the first {max_rows:,} of {len(df):,} rows."
     cols = list(view.columns)
     is_num = [bool(pd.api.types.is_numeric_dtype(view[c])) for c in cols]
@@ -456,7 +463,7 @@ def pdf_table(df, styles, max_rows=60, font_size=7, max_width=None, zero_dash=Fa
     total_w = min(CONTENT_W, max_width) if max_width else CONTENT_W
     widths = [w / sum(weights) * total_w for w in weights]
 
-    table = Table(data, colWidths=widths, repeatRows=1, hAlign="LEFT" if max_width else "CENTER")
+    table = LongTable(data, colWidths=widths, repeatRows=1, hAlign="LEFT" if max_width else "CENTER")
     style = [
         ("BACKGROUND", (0, 0), (-1, 0), C("navy")),
         ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#D9E2F0")),
@@ -795,15 +802,32 @@ def create_pdf_report(filtered, unit_summary, unit_category, exact, overall_band
     issue_cols = [c for c in ["Review Reason"] + extras + ["Unit", "Category", "Quantity", "Age Years", "Data Status"] if c in issues.columns]
     story += pdf_table(issues[issue_cols] if not issues.empty else issues, S, max_rows=100, font_size=7)
 
-    story += [PageBreak(), Paragraph("8. Machine details", S["h1"]),
-              Paragraph("Oldest machines first. The PDF lists up to 500 rows; download the Excel workbook for every filtered record.", S["note"]),
+    story += [PageBreak(), Paragraph("8. Complete machine details", S["h1"]),
+              Paragraph(
+                  f"All {len(filtered):,} filtered record(s) are included below. "
+                  "Records are sorted from oldest to youngest; the table continues across pages "
+                  "and repeats its column headings.",
+                  S["note"],
+              ),
               Spacer(1, 2 * mm)]
     detail = filtered.copy()
     detail["Age Band"] = detail["Age Band"].astype("object").fillna("Unclassified")
-    detail = detail.sort_values("Age Years", ascending=False, na_position="last").rename(columns={"Purchase Date Parsed": "Purchase Date"})
+    detail = detail.sort_values(
+        "Age Years", ascending=False, na_position="last"
+    ).rename(columns={"Purchase Date Parsed": "Purchase Date"})
     extras = [c for c in (extra_detail_cols or []) if c in detail.columns][:3]
-    wanted = extras + [c for c in ["Unit", "Category", "Quantity", "Purchase Date", "Age Years", "Age Band", "Data Status"] if c in detail.columns]
-    story += pdf_table(detail[wanted], S, max_rows=500, font_size=6.5)
+    wanted = extras + [
+        c for c in [
+            "Unit", "Category", "Quantity", "Purchase Date",
+            "Age Years", "Age Band", "Data Status"
+        ] if c in detail.columns
+    ]
+
+    # No row cap: every row remaining after the dashboard filters is exported.
+    # LongTable (created inside pdf_table) repeats the header on each page.
+    story += pdf_table(
+        detail[wanted], S, max_rows=None, font_size=6.5, max_chars=36
+    )
 
     story += [Spacer(1, 6 * mm), KeepTogether([
         Paragraph("Method notes", S["h2"]),
@@ -1111,7 +1135,7 @@ export_detail["Age Band"] = export_detail["Age Band"].astype("object").fillna("U
 
 st.divider()
 st.markdown("### 📥 Download reports")
-st.caption("Both exports respect the current filters. Excel contains every record; the PDF is a print-ready summary for management.")
+st.caption("Both exports respect the current filters. Excel and PDF include every filtered machine record; the PDF may take longer to prepare for large datasets.")
 d1, d2 = st.columns(2)
 
 with d1:
@@ -1155,5 +1179,5 @@ with d2:
 
 st.caption(
     "Age is calculated from the purchase date first; an existing age column is used only when the date cannot be read. "
-    "All totals are quantity-weighted. PDF machine details are limited to 500 rows; use Excel for complete detail."
+    "All totals are quantity-weighted. The PDF and Excel exports include every record matching the current filters."
 )
